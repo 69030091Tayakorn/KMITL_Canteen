@@ -2,10 +2,10 @@ from functools import partial
 
 import customtkinter as ctk
 
-from Backend import cart
-from Backend.sample_data import canteens
+from Backend import cart, catalog
 from Frontend.menu_page import MenuPage
 from Frontend.checkout_page import CheckoutPage
+from Frontend.shop_orders_page import ShopOrdersPage
 
 
 class CanteenApp(ctk.CTk):
@@ -28,7 +28,7 @@ class CanteenApp(ctk.CTk):
         )
         self.app_name_label.pack(pady=(48, 12))
 
-        self.canteens = canteens
+        self.canteens = catalog.get_canteens()
 
         self.page_title_label = ctk.CTkLabel(
             self.main_frame,
@@ -46,6 +46,10 @@ class CanteenApp(ctk.CTk):
             command=self.show_cart,
         )
         self.cart_button.pack(pady=4)
+        self.shop_button = ctk.CTkButton(
+            self.main_frame, text="ฝั่งร้านค้า (สาธิต)", command=self.show_shop_orders,
+        )
+        self.shop_button.pack(pady=4)
 
         self.page_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
         self.page_frame.pack(fill="both", expand=True, padx=24, pady=12)
@@ -58,6 +62,7 @@ class CanteenApp(ctk.CTk):
             widget.destroy()
 
     def show_canteens(self):
+        self.canteens = catalog.get_canteens()
         self.last_page = self.show_canteens
         self.clear_page()
         self.page_title_label.configure(text="เลือกโรงอาหาร")
@@ -96,6 +101,7 @@ class CanteenApp(ctk.CTk):
             )
             shop_button.pack(pady=8)
 
+
         back_button = ctk.CTkButton(
             self.page_frame,
             text="กลับไปเลือกโรงอาหาร",
@@ -110,6 +116,7 @@ class CanteenApp(ctk.CTk):
 
         menu_page = MenuPage(
             self.page_frame,
+            canteen_name,
             shop_name,
             partial(self.add_to_cart, canteen_name, shop_name),
             partial(self.show_shops, canteen_name),
@@ -261,5 +268,30 @@ class CanteenApp(ctk.CTk):
         page = CheckoutPage(
             self.page_frame, canteen_name, shop_name, shop_items,
             partial(self.show_shop_cart, canteen_name, shop_name),
+            partial(self.order_saved, canteen_name, shop_name),
         )
+        page.pack(fill="x")
+
+    def order_saved(self, canteen_name, shop_name, order_id):
+        ordered_items = cart.get_shop_items(self.cart, canteen_name, shop_name)
+        for item in ordered_items:
+            cart.remove_item(self.cart, item)
+        self.update_cart_button()
+        self.clear_page()
+        self.page_title_label.configure(text="รอตรวจสอบการชำระเงิน")
+        message = ctk.CTkLabel(
+            self.page_frame,
+            text=f"เลขคำสั่งซื้อ #{order_id}\n{canteen_name} / {shop_name}\n"
+                 "รับแจ้งชำระแล้ว รอตรวจสอบเงินเข้า\nยังไม่ยืนยันการชำระเงินหรือส่งให้ร้านทำอาหาร",
+        )
+        message.pack(pady=24)
+        back_button = ctk.CTkButton(
+            self.page_frame, text="กลับไปดูตะกร้า", command=self.show_cart,
+        )
+        back_button.pack(pady=12)
+
+    def show_shop_orders(self):
+        self.clear_page()
+        self.page_title_label.configure(text="จัดการออเดอร์ร้านค้า")
+        page = ShopOrdersPage(self.page_frame, self.show_canteens)
         page.pack(fill="x")

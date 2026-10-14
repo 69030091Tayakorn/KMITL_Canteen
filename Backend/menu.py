@@ -1,7 +1,7 @@
-from Backend.sample_data import curry_shops, menus, shop_options
 
 
-def check_selection(shop_name, dish_count, selected_dishes):
+def check_selection(shop_name, dish_count, selected_dishes, menu_data):
+    curry_shops, menus, shop_options = menu_data
     shop = curry_shops[shop_name]
     if dish_count not in shop["prices"]:
         return "กรุณาเลือกราด 1 อย่าง หรือ 2 อย่าง"
@@ -15,7 +15,8 @@ def check_selection(shop_name, dish_count, selected_dishes):
     return ""
 
 
-def calculate_price(shop_name, menu_name, dish_count=1, extra_rice=False, selected_options=None):
+def calculate_price(shop_name, menu_name, dish_count=1, extra_rice=False, selected_options=None, *, menu_data):
+    curry_shops, menus, shop_options = menu_data
     # คืนราคาต่อหนึ่งจาน ส่วนจำนวนจานให้ตะกร้าคำนวณ
     if shop_name in curry_shops:
         shop = curry_shops[shop_name]

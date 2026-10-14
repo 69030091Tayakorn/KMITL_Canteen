@@ -5,3 +5,5 @@ outputs/backups/
 *.db-journal
 *.db-wal
 *.db-shm
+assets/payment_qr.png
+*.sqbpro

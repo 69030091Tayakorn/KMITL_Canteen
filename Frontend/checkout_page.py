@@ -1,17 +1,23 @@
+import sqlite3
+
 import customtkinter as ctk
 
-from Backend import cart, checkout
+from Backend import cart, checkout, orders, catalog
 from Frontend.date_picker import DatePicker
+from Frontend.payment_page import PaymentPage
 
 
 class CheckoutPage(ctk.CTkFrame):
-    def __init__(self, parent, canteen_name, shop_name, items, go_back):
+    def __init__(self, parent, canteen_name, shop_name, items, go_back, on_saved):
         super().__init__(parent, fg_color="transparent")
 
         self.canteen_name = canteen_name
         self.shop_name = shop_name
         self.items = items
         self.go_back = go_back
+        self.on_saved = on_saved
+        self.order_id = None
+        self.payment_page = None
         self.review_frame = None
         self.selected_date = None
         self.calendar_window = None
@@ -123,6 +129,7 @@ class CheckoutPage(ctk.CTkFrame):
 
     # 3. แสดงข้อมูลที่ผ่านการตรวจ พร้อมอาหารและยอดรวม
     def show_review(self, name, phone, pickup_date, pickup_time):
+        self.order_details = (name, phone, pickup_date, pickup_time)
         # ซ่อนฟอร์มแทนการลบ เพื่อเก็บข้อความที่กรอกไว้
         self.form_frame.pack_forget()
         self.review_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -140,6 +147,13 @@ class CheckoutPage(ctk.CTkFrame):
         self.add_review_text(f"ยอดรวมร้านนี้ {total_price} บาท")
         self.add_review_text("ยังไม่ได้ส่งออเดอร์หรือชำระเงิน")
 
+        self.save_error_label = ctk.CTkLabel(self.review_frame, text="", wraplength=500)
+        self.save_error_label.pack(pady=8)
+        self.confirm_button = ctk.CTkButton(
+            self.review_frame, text="ไปหน้าชำระเงิน", command=self.show_payment,
+        )
+        self.confirm_button.pack(pady=8)
+
         edit_button = ctk.CTkButton(
             self.review_frame,
             text="แก้ไขข้อมูลผู้รับ",
@@ -153,6 +167,49 @@ class CheckoutPage(ctk.CTkFrame):
             command=self.go_back,
         )
         back_button.pack(pady=8)
+
+    def show_payment(self):
+        try:
+            for item in self.items:
+                catalog.check_cart_item(item)
+        except (ValueError, sqlite3.Error) as error:
+            self.save_error_label.configure(text=str(error))
+            return
+        error = checkout.check_details(*self.order_details)
+        if error:
+            self.save_error_label.configure(text=error)
+            return
+        self.review_frame.pack_forget()
+        self.payment_page = PaymentPage(
+            self, self.shop_name, cart.get_total_price(self.items),
+            self.confirm_order, self.back_to_review,
+        )
+        self.payment_page.pack(fill="x")
+
+    def back_to_review(self):
+        self.payment_page.destroy()
+        self.payment_page = None
+        self.review_frame.pack(fill="x")
+
+    def confirm_order(self):
+        if self.order_id is not None:
+            return
+        if self.payment_page is None:
+            return
+        self.payment_page.report_button.configure(state="disabled")
+        try:
+            self.order_id = orders.save_order(
+                self.canteen_name, self.shop_name, self.items, *self.order_details,
+            )
+        except ValueError as error:
+            self.payment_page.show_error(str(error))
+            return
+        except (sqlite3.Error, OSError):
+            self.payment_page.show_error(
+                "บันทึกไม่สำเร็จ ตะกร้ายังอยู่ กรุณาปิดการแก้ไขใน DB Browser แล้วลองใหม่",
+            )
+            return
+        self.on_saved(self.order_id)
 
     # แสดงอาหารทีละรายการ แยกชื่อ ราคา ตัวเลือก และหมายเหตุ
     def show_food_item(self, item):
