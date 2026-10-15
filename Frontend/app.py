@@ -2,10 +2,12 @@ from functools import partial
 
 import customtkinter as ctk
 
-from Backend import cart, catalog
+from Backend import cart, catalog, users
+from Frontend.login_page import LoginPage
 from Frontend.menu_page import MenuPage
 from Frontend.checkout_page import CheckoutPage
 from Frontend.shop_orders_page import ShopOrdersPage
+from Frontend.order_history_page import OrderHistoryPage
 
 
 class CanteenApp(ctk.CTk):
@@ -28,7 +30,7 @@ class CanteenApp(ctk.CTk):
         )
         self.app_name_label.pack(pady=(48, 12))
 
-        self.canteens = catalog.get_canteens()
+        self.canteens = {}
 
         self.page_title_label = ctk.CTkLabel(
             self.main_frame,
@@ -40,21 +42,54 @@ class CanteenApp(ctk.CTk):
         # ตะกร้าเก็บอยู่ในหน่วยความจำ ปิดแอปแล้วข้อมูลจะหาย
         self.cart = []
         self.last_page = self.show_canteens
+        self.navigation_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.navigation_frame.pack(fill="x")
         self.cart_button = ctk.CTkButton(
-            self.main_frame,
+            self.navigation_frame,
             text="ตะกร้า (0 ชิ้น)",
             command=self.show_cart,
         )
         self.cart_button.pack(pady=4)
         self.shop_button = ctk.CTkButton(
-            self.main_frame, text="ฝั่งร้านค้า (สาธิต)", command=self.show_shop_orders,
+            self.navigation_frame, text="ออเดอร์ของร้าน", command=self.show_shop_orders,
         )
         self.shop_button.pack(pady=4)
+        self.history_button = ctk.CTkButton(
+            self.navigation_frame, text="คำสั่งซื้อของฉัน", command=self.show_order_history,
+        )
+        self.history_button.pack(pady=4)
 
         self.page_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
         self.page_frame.pack(fill="both", expand=True, padx=24, pady=12)
 
-        self.show_canteens()
+        self.logout_button = ctk.CTkButton(
+            self.navigation_frame, text='ออกจากระบบ', command=self.show_login,
+        )
+        self.show_login()
+
+    def show_login(self):
+        users.logout()
+        self.current_user = None
+        self.cart.clear()
+        self.last_page = self.show_canteens
+        self.update_cart_button()
+        for button in (self.cart_button, self.shop_button, self.history_button, self.logout_button):
+            button.pack_forget()
+        self.clear_page()
+        self.page_title_label.configure(text='ยินดีต้อนรับ')
+        LoginPage(self.page_frame, self.login_finished).pack(fill='x')
+
+    def login_finished(self, user):
+        self.current_user = user
+        self.logout_button.configure(text=f"ออกจากระบบ — {user['display_name']}")
+        self.logout_button.pack(pady=4)
+        if user['role'] == 'shop':
+            self.shop_button.pack(pady=4)
+            self.show_shop_orders()
+        else:
+            self.cart_button.pack(pady=4)
+            self.history_button.pack(pady=4)
+            self.show_canteens()
 
     def clear_page(self):
         # ลบเนื้อหาหน้าเดิม ก่อนแสดงหน้าใหม่
@@ -62,6 +97,7 @@ class CanteenApp(ctk.CTk):
             widget.destroy()
 
     def show_canteens(self):
+        users.require_user('customer')
         self.canteens = catalog.get_canteens()
         self.last_page = self.show_canteens
         self.clear_page()
@@ -259,6 +295,7 @@ class CanteenApp(ctk.CTk):
         ).pack(pady=8)
 
     def show_checkout(self, canteen_name, shop_name):
+        users.require_user('customer')
         shop_items = cart.get_shop_items(self.cart, canteen_name, shop_name)
         if not shop_items:
             self.show_shop_cart(canteen_name, shop_name)
@@ -285,13 +322,26 @@ class CanteenApp(ctk.CTk):
                  "รับแจ้งชำระแล้ว รอตรวจสอบเงินเข้า\nยังไม่ยืนยันการชำระเงินหรือส่งให้ร้านทำอาหาร",
         )
         message.pack(pady=24)
+        history_button = ctk.CTkButton(
+            self.page_frame, text="ติดตามคำสั่งซื้อนี้",
+            command=partial(self.show_order_history, order_id),
+        )
+        history_button.pack(pady=8)
         back_button = ctk.CTkButton(
             self.page_frame, text="กลับไปดูตะกร้า", command=self.show_cart,
         )
         back_button.pack(pady=12)
 
     def show_shop_orders(self):
+        users.require_user('shop')
         self.clear_page()
         self.page_title_label.configure(text="จัดการออเดอร์ร้านค้า")
-        page = ShopOrdersPage(self.page_frame, self.show_canteens)
+        page = ShopOrdersPage(self.page_frame, self.show_login)
+        page.pack(fill="x")
+
+    def show_order_history(self, order_id=None):
+        users.require_user('customer')
+        self.clear_page()
+        self.page_title_label.configure(text="คำสั่งซื้อและสถานะ")
+        page = OrderHistoryPage(self.page_frame, self.show_canteens, order_id)
         page.pack(fill="x")

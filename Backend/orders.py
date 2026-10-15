@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from Backend import checkout, database, catalog
+from Backend import checkout, database, catalog, users
 
 
 def check_items(canteen_name, shop_name, items):
@@ -18,12 +18,12 @@ def check_items(canteen_name, shop_name, items):
             raise ValueError("ราคาอาหารต้องเป็นจำนวนเต็มบาทและไม่ติดลบ")
 
 
-def insert_order(connection, canteen_name, shop_name, name, phone, pickup_date, pickup_time):
+def insert_order(connection, canteen_name, shop_name, name, phone, pickup_date, pickup_time, user_id, shop_id):
     sql = """
         INSERT INTO orders (
             canteen_name, shop_name, customer_name, phone,
-            pickup_date, pickup_time, created_at, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            pickup_date, pickup_time, created_at, status, user_id, shop_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     created_at = datetime.now(checkout.THAI_TIME).isoformat(timespec="seconds")
     values = (
@@ -35,6 +35,8 @@ def insert_order(connection, canteen_name, shop_name, name, phone, pickup_date, 
         pickup_time,
         created_at,
         "awaiting_payment_review",
+        user_id,
+        shop_id,
     )
     cursor = connection.execute(sql, values)
     return cursor.lastrowid
@@ -59,6 +61,10 @@ def insert_order_item(connection, order_id, item):
 
 
 def save_order(canteen_name, shop_name, items, name, phone, pickup_date, pickup_time):
+    user = users.require_user('customer')
+    shop = catalog.get_shop(canteen_name, shop_name)
+    if shop is None:
+        raise ValueError('ไม่พบร้านอาหารนี้')
     error = checkout.check_details(name, phone, pickup_date, pickup_time)
     if error:
         raise ValueError(error)
@@ -71,7 +77,7 @@ def save_order(canteen_name, shop_name, items, name, phone, pickup_date, pickup_
         with connection:
             order_id = insert_order(
                 connection, canteen_name, shop_name, name, phone,
-                pickup_date, pickup_time,
+                pickup_date, pickup_time, user['user_id'], shop['shop_id'],
             )
 
             for item in items:

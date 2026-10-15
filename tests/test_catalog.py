@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from Backend import catalog, database, orders, checkout
+from Backend import catalog, database, orders, checkout, users
 
 
 class CatalogTests(unittest.TestCase):
@@ -14,14 +14,18 @@ class CatalogTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent / 'Database SQLite'
         self.connection.executescript((root / 'schema.sql').read_text(encoding='utf-8'))
         self.connection.executescript((root / 'sample_data.sql').read_text(encoding='utf-8'))
+        self.connection.executescript((root / '01_add_users.sql').read_text(encoding='utf-8'))
         def connect():
             connection = sqlite3.connect(self.uri, uri=True)
             connection.execute('PRAGMA foreign_keys=ON')
             return connection
         self.patcher = patch.object(database, 'connect_database', connect)
         self.patcher.start()
+        users.register_customer('tester', 'password123', 'Test')
+        users.login('tester', 'password123')
 
     def tearDown(self):
+        users.logout()
         self.patcher.stop()
         self.connection.close()
 

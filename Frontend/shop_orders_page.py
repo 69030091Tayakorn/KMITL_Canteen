@@ -5,7 +5,7 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-from Backend import catalog, shop_orders
+from Backend import users, shop_orders
 
 
 class ShopOrdersPage(ctk.CTkFrame):
@@ -28,32 +28,24 @@ class ShopOrdersPage(ctk.CTkFrame):
 
     def show_shops(self):
         self.clear()
-        self.label('ฝั่งร้านค้าสำหรับสาธิตในเครื่องเดียว — ยังไม่มีล็อกอินหรือสิทธิ์ผู้ใช้')
         try:
-            canteens = catalog.get_canteens()
-        except sqlite3.Error:
-            self.label('อ่านฐานข้อมูลไม่สำเร็จ กรุณาตรวจการเชื่อมต่อ')
-            self.button('กลับฝั่งลูกค้า', self.go_back)
+            shop = users.get_my_shop()
+        except (ValueError, sqlite3.Error) as error:
+            self.label(str(error))
+            self.button('ออกจากระบบ', self.go_back)
             return
-        for canteen, shops in canteens.items():
-            self.label(canteen)
-            for shop in shops:
-                self.button(shop, partial(self.select_shop, canteen, shop))
-        self.button('กลับฝั่งลูกค้า', self.go_back)
-
-    def select_shop(self, canteen, shop):
-        self.canteen = canteen
-        self.shop = shop
+        self.canteen = shop['canteen_name']
+        self.shop = shop['shop_name']
         self.show_orders()
 
     def show_orders(self):
         self.clear()
         self.label(f'{self.canteen} / {self.shop}')
         self.button('รีเฟรชรายการ', self.show_orders)
-        self.button('เปลี่ยนร้าน', self.show_shops)
+        self.button('ออกจากระบบ', self.go_back)
         try:
             rows = shop_orders.read_orders(self.canteen, self.shop)
-        except sqlite3.Error:
+        except (sqlite3.Error, ValueError):
             self.label('อ่านออเดอร์ไม่สำเร็จ กรุณาลองใหม่')
             return
         if not rows:
@@ -73,7 +65,7 @@ class ShopOrdersPage(ctk.CTkFrame):
                 self.label('ไม่พบออเดอร์ของร้านนี้')
                 return
             items = shop_orders.read_items(order_id, self.canteen, self.shop)
-        except sqlite3.Error:
+        except (sqlite3.Error, ValueError):
             self.label('อ่านรายละเอียดไม่สำเร็จ กรุณาลองใหม่')
             return
         self.label(f"ออเดอร์ #{order_id} — {self.shop}")
