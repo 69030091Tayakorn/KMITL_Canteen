@@ -13,6 +13,7 @@ class DatePicker(ctk.CTkToplevel):
     def __init__(self, parent, selected_date, on_select):
         super().__init__(parent)
         self.title("เลือกวันที่รับอาหาร")
+        self.configure(fg_color="#FFFFFF")
         self.resizable(False, False)
         self.transient(parent.winfo_toplevel())
         self.on_select = on_select
@@ -26,18 +27,24 @@ class DatePicker(ctk.CTkToplevel):
         header.pack(fill="x", padx=12, pady=12)
         self.previous_button = ctk.CTkButton(
             header, text="‹", width=40, command=partial(self.change_month, -1),
+            fg_color="#F45B2A", hover_color="#DF4B20", text_color="#FFFFFF",
         )
         self.previous_button.pack(side="left")
         self.month_label = ctk.CTkLabel(header, text="", width=230)
         self.month_label.pack(side="left", padx=8)
         next_button = ctk.CTkButton(
             header, text="›", width=40, command=partial(self.change_month, 1),
+            fg_color="#F45B2A", hover_color="#DF4B20", text_color="#FFFFFF",
         )
         next_button.pack(side="right")
 
         self.days_frame = ctk.CTkFrame(self)
         self.days_frame.pack(padx=12, pady=8)
-        cancel_button = ctk.CTkButton(self, text="ยกเลิก", command=self.destroy)
+        cancel_button = ctk.CTkButton(
+            self, text="ยกเลิก", command=self.destroy,
+            fg_color="#FFFFFF", hover_color="#FFF4EE", text_color="#F45B2A",
+            border_width=1, border_color="#F45B2A",
+        )
         cancel_button.pack(pady=12)
         self.show_month()
         self.after(100, self.focus_calendar)
@@ -83,12 +90,14 @@ class DatePicker(ctk.CTkToplevel):
                 button = ctk.CTkButton(
                     self.days_frame, text=str(day), width=40, height=36,
                     command=partial(self.select_date, day_date),
+                    fg_color="#F45B2A", hover_color="#DF4B20",
+                    text_color="#FFFFFF", corner_radius=8,
                 )
                 button.grid(row=row, column=column, padx=4, pady=4)
                 if day_date < today:
                     button.configure(state="disabled")
                 if day_date == self.selected_date:
-                    button.configure(border_width=2, border_color="orange")
+                    button.configure(border_width=2, border_color="#242424")
 
     def select_date(self, selected_date):
         # ตรวจอีกครั้ง เผื่อเปิดปฏิทินค้างข้ามวัน
